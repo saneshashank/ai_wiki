@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "LLM Wiki",
+  "version": "1.0.0",
+  "description": "Build a personal wiki from pages you visit using Claude AI",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.anthropic.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LLM Wiki"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

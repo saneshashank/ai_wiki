@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>LLM Wiki</title>
+  <style>
+    :root {
+      --bg: #161616;
+      --surface: #1f1f1f;
+      --border: #2e2e2e;
+      --text: #d4d4d4;
+      --muted: #6b6b6b;
+      --accent: #6ea8c8;
+      --success: #6abf69;
+      --error: #c86e6e;
+      --warning: #c8a86e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12.5px;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: var(--accent);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 2px 4px;
+      font-size: 14px;
+      border-radius: 3px;
+      transition: color 0.15s;
+    }
+
+    .icon-btn:hover { color: var(--text); }
+
+    .section {
+      padding: 12px 14px;
+    }
+
+    .section + .section {
+      border-top: 1px solid var(--border);
+    }
+
+    /* Current page info */
+    .page-info {
+      margin-bottom: 10px;
+    }
+
+    .page-title {
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .page-url {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Folder info */
+    .folder-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .folder-name {
+      color: var(--text);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #101010;
+    }
+
+    .btn-primary:not(:disabled):hover { opacity: 0.85; }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:not(:disabled):hover { background: var(--border); }
+
+    .btn + .btn { margin-top: 7px; }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Status */
+    .status {
+      margin-top: 10px;
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      display: none;
+    }
+
+    .status.visible { display: block; }
+    .status.info    { background: #1a2733; color: var(--accent); }
+    .status.success { background: #1a2b1a; color: var(--success); }
+    .status.error   { background: #2b1a1a; color: var(--error); }
+
+    /* Lint summary */
+    .lint-summary {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      display: none;
+    }
+
+    .lint-summary.visible { display: block; }
+
+    /* No-folder state */
+    .no-folder-msg {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: none;
+      width: 12px;
+      height: 12px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <span class="header-title">◈ LLM Wiki</span>
+    <div class="header-actions">
+      <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
+    </div>
+  </div>
+
+  <!-- Not configured state -->
+  <div class="section" id="no-folder-section">
+    <p class="no-folder-msg">Wiki folder not yet configured. Open Settings to choose your wiki folder (one-time setup).</p>
+    <button class="btn btn-secondary" id="setup-settings-btn">Open Settings →</button>
+  </div>
+
+  <!-- Main state (folder selected) -->
+  <div id="main-section" style="display:none">
+
+    <!-- Current page -->
+    <div class="section">
+      <div class="folder-row">
+        <span>📁</span>
+        <span class="folder-name" id="folder-name">—</span>
+      </div>
+      <div class="page-info">
+        <div class="page-title" id="page-title">Loading…</div>
+        <div class="page-url" id="page-url"></div>
+      </div>
+      <button class="btn btn-primary" id="ingest-btn">
+        <span class="spinner" id="spinner"></span>
+        <span id="ingest-label">▶ Ingest This Page</span>
+      </button>
+    </div>
+
+    <!-- Stats + lint -->
+    <div class="section">
+      <div class="stats-row">
+        <span>Ingests: <span class="stat-value" id="ingest-count">0</span></span>
+        <span>Next lint in: <span class="stat-value" id="next-lint">—</span></span>
+      </div>
+      <button class="btn btn-secondary" id="lint-btn">⚡ Run Lint Now</button>
+      <div class="status" id="status"></div>
+      <div class="lint-summary" id="lint-summary"></div>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

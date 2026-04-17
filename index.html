@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Wiki</title>
+
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+
+  <style>
+    /* ── Design tokens ────────────────────────────────────────────────────── */
+    :root {
+      --bg:         #f7f3ec;
+      --surface:    #f0ebe1;
+      --border:     #ddd5c4;
+      --text:       #2c2820;
+      --muted:      #8a7f72;
+      --accent:     #5a7a9a;
+      --accent-dim: #d6e4f0;
+      --link:       #4a6e8a;
+      --code-bg:    #ede8df;
+      --sidebar-w:  260px;
+      --content-w:  680px;
+    }
+
+    [data-theme="dark"] {
+      --bg:         #141210;
+      --surface:    #1c1916;
+      --border:     #2e2a24;
+      --text:       #d8d0c4;
+      --muted:      #6a6058;
+      --accent:     #7aaccc;
+      --accent-dim: #1a2e3c;
+      --link:       #7aaccc;
+      --code-bg:    #201e1b;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: Georgia, 'Palatino Linotype', Palatino, 'Book Antiqua', serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
+      transition: transform 0.25s ease, background 0.2s;
+    }
+
+    .sidebar-header {
+      padding: 28px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .wiki-title {
+      font-size: 15px;
+      font-weight: normal;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .wiki-subtitle {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* Search */
+    .search-wrap {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #search {
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 12.5px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #search:focus { border-color: var(--accent); }
+    #search::placeholder { color: var(--muted); }
+
+    /* Nav list */
+    #nav-list {
+      flex: 1;
+      padding: 12px 0 24px;
+      list-style: none;
+    }
+
+    .nav-section {
+      padding: 10px 20px 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .nav-item a {
+      display: block;
+      padding: 5px 20px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.4;
+      border-left: 2px solid transparent;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+      word-break: break-word;
+    }
+
+    .nav-item a:hover {
+      color: var(--text);
+      background: var(--accent-dim);
+    }
+
+    .nav-item.active a {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: color 0.12s, background 0.12s;
+    }
+
+    .icon-btn:hover { color: var(--text); background: var(--border); }
+
+    .footer-spacer { flex: 1; }
+
+    /* ── Main content ─────────────────────────────────────────────────────── */
+    #content {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 64px 40px 120px;
+      min-height: 100vh;
+    }
+
+    #article-wrap {
+      width: 100%;
+      max-width: var(--content-w);
+    }
+
+    /* Welcome screen */
+    #welcome {
+      padding-top: 60px;
+      text-align: center;
+    }
+
+    .welcome-glyph {
+      font-size: 48px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      opacity: 0.4;
+    }
+
+    .welcome-title {
+      font-size: 22px;
+      color: var(--text);
+      margin-bottom: 10px;
+      font-weight: normal;
+    }
+
+    .welcome-sub {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 400px;
+      margin: 0 auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Article typography ───────────────────────────────────────────────── */
+    #article-view {
+      animation: fadeIn 0.18s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .article-meta {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin-bottom: 40px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* Prose */
+    .prose h1 {
+      font-size: 28px;
+      font-weight: normal;
+      color: var(--text);
+      margin-bottom: 24px;
+      line-height: 1.25;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .prose h2 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 36px;
+      margin-bottom: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    .prose h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 24px;
+      margin-bottom: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .prose p {
+      font-size: 16.5px;
+      line-height: 1.8;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .prose ul, .prose ol {
+      padding-left: 24px;
+      margin-bottom: 16px;
+    }
+
+    .prose li {
+      font-size: 16px;
+      line-height: 1.75;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .prose a {
+      color: var(--link);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-dim);
+      transition: border-color 0.12s;
+    }
+
+    .prose a:hover { border-bottom-color: var(--accent); }
+
+    .prose code {
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      font-size: 13.5px;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    .prose pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin-bottom: 20px;
+    }
+
+    .prose pre code {
+      background: none;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .prose blockquote {
+      border-left: 3px solid var(--border);
+      padding: 4px 0 4px 18px;
+      margin: 20px 0;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .prose hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 32px 0;
+    }
+
+    .prose em { font-style: italic; }
+    .prose strong { font-weight: 600; }
+
+    .prose table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14.5px;
+      margin-bottom: 20px;
+    }
+
+    .prose th, .prose td {
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+    }
+
+    .prose th {
+      background: var(--surface);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Error / loading states ───────────────────────────────────────────── */
+    .state-msg {
+      padding: 48px 0;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Mobile hamburger ─────────────────────────────────────────────────── */
+    #menu-toggle {
+      display: none;
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 200;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      font-size: 16px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      #menu-toggle { display: block; }
+
+      #sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+      }
+
+      #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.3); }
+
+      #content {
+        margin-left: 0;
+        padding: 20px 20px 80px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <button id="menu-toggle" aria-label="Toggle menu">☰</button>
+
+  <div id="app">
+
+    <!-- Sidebar -->
+    <nav id="sidebar" aria-label="Wiki navigation">
+      <div class="sidebar-header">
+        <div class="wiki-title">◈ LLM Wiki</div>
+        <div class="wiki-subtitle" id="article-count">Loading…</div>
+      </div>
+
+      <div class="search-wrap">
+        <input type="search" id="search" placeholder="Search articles…" aria-label="Search articles">
+      </div>
+
+      <ul id="nav-list" role="list">
+        <li class="state-msg" style="text-align:left;padding:12px 20px;font-size:12px">Loading index…</li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <span class="footer-spacer"></span>
+        <button class="icon-btn" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">◑</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main id="content">
+      <div id="article-wrap">
+
+        <!-- Welcome (shown only when no article is selected) -->
+        <div id="welcome">
+          <div class="welcome-glyph">◈</div>
+          <h2 class="welcome-title">Your LLM Wiki</h2>
+          <p class="welcome-sub">Select an article from the sidebar.</p>
+        </div>
+
+        <!-- Article view -->
+        <div id="article-view" style="display:none">
+          <div class="article-meta" id="article-meta"></div>
+          <div class="prose" id="article-content"></div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let articles = [];   // { title, filename, description }
+    let activeFile = null;
+
+    // ── Theme ────────────────────────────────────────────────────────────────
+    const savedTheme = localStorage.getItem('wiki-theme') || 'light';
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('wiki-theme', isDark ? 'light' : 'dark');
+    });
+
+    // ── Mobile sidebar ───────────────────────────────────────────────────────
+    document.getElementById('menu-toggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    document.getElementById('content').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+    });
+
+    // ── Fetch markdown from wiki/ relative path ───────────────────────────────
+    async function readMarkdown(filename) {
+      const res = await fetch(`wiki/${filename}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }
+
+    // ── Index parsing ────────────────────────────────────────────────────────
+    function parseIndex(markdown) {
+      const re = /^[-*]\s+\[([^\]]+)\]\(([^)]+\.md)\)(?:\s+[—–-]\s+(.+))?/;
+      return markdown.split('\n').reduce((acc, line) => {
+        const m = line.match(re);
+        if (m) acc.push({ title: m[1].trim(), filename: m[2].trim(), description: (m[3] || '').trim() });
+        return acc;
+      }, []);
+    }
+
+    // ── Navigation rendering ─────────────────────────────────────────────────
+    function renderNav(items) {
+      const list = document.getElementById('nav-list');
+      list.innerHTML = '';
+
+      if (items.length === 0) {
+        list.innerHTML = '<li class="state-msg" style="text-align:left;padding:12px 20px;font-size:12px">No articles yet.</li>';
+        return;
+      }
+
+      const header = document.createElement('li');
+      header.className = 'nav-section';
+      header.textContent = `Articles · ${items.length}`;
+      list.appendChild(header);
+
+      for (const art of items) {
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        li.dataset.file = art.filename;
+
+        const a = document.createElement('a');
+        a.href = '#' + encodeURIComponent(art.filename);
+        a.textContent = art.title;
+        if (art.description) a.title = art.description;
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          loadArticle(art.filename);
+          document.getElementById('sidebar').classList.remove('open');
+        });
+
+        li.appendChild(a);
+        list.appendChild(li);
+      }
+    }
+
+    function setActiveNav(filename) {
+      document.querySelectorAll('.nav-item').forEach(li => {
+        li.classList.toggle('active', li.dataset.file === filename);
+      });
+    }
+
+    // ── Article loading ───────────────────────────────────────────────────────
+    async function loadArticle(filename) {
+      activeFile = filename;
+      setActiveNav(filename);
+      location.hash = encodeURIComponent(filename);
+
+      document.getElementById('welcome').style.display = 'none';
+      const view = document.getElementById('article-view');
+      view.style.display = 'block';
+      document.getElementById('article-content').innerHTML = '<p class="state-msg">Loading…</p>';
+      document.getElementById('article-meta').innerHTML = '';
+
+      try {
+        const md = await readMarkdown(filename);
+
+        // Rewrite internal .md links to hash links
+        const processedMd = md.replace(/\[([^\]]+)\]\(([^)]+\.md)\)/g, (_, text, href) => {
+          if (href.startsWith('http')) return `[${text}](${href})`;
+          return `[${text}](#${encodeURIComponent(href)})`;
+        });
+
+        document.getElementById('article-content').innerHTML =
+          marked.parse(processedMd, { breaks: false, gfm: true });
+
+        // Wire up internal hash links for SPA navigation
+        document.querySelectorAll('#article-content a[href^="#"]').forEach(a => {
+          const fname = decodeURIComponent(a.getAttribute('href').slice(1));
+          if (fname.endsWith('.md')) {
+            a.addEventListener('click', e => { e.preventDefault(); loadArticle(fname); });
+          }
+        });
+
+        const art = articles.find(x => x.filename === filename);
+        if (art?.description) document.getElementById('article-meta').textContent = art.description;
+        document.title = (art?.title || filename) + ' · LLM Wiki';
+        window.scrollTo({ top: 0 });
+
+      } catch (e) {
+        document.getElementById('article-content').innerHTML =
+          `<p class="state-msg" style="color:var(--error,#c86e6e)">Could not load ${filename}: ${e.message}</p>`;
+      }
+    }
+
+    // ── Index loading ─────────────────────────────────────────────────────────
+    async function loadIndex() {
+      let indexMd;
+      try {
+        indexMd = await readMarkdown('index.md');
+      } catch {
+        document.getElementById('nav-list').innerHTML =
+          `<li class="state-msg" style="text-align:left;padding:12px 20px;font-size:12px;line-height:1.7">
+            Could not load <code>wiki/index.md</code>.<br>
+            Serve this folder with a local HTTP server<br>
+            or push to GitHub Pages.
+          </li>`;
+        document.getElementById('article-count').textContent = '';
+        return;
+      }
+
+      articles = parseIndex(indexMd);
+      renderNav(articles);
+      document.getElementById('article-count').textContent =
+        `${articles.length} article${articles.length !== 1 ? 's' : ''}`;
+
+      // Hash deep-link takes priority, otherwise open first article
+      const hash = decodeURIComponent(location.hash.slice(1));
+      if (hash.endsWith('.md') && articles.find(a => a.filename === hash)) {
+        loadArticle(hash);
+      } else if (articles.length > 0) {
+        loadArticle(articles[0].filename);
+      }
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────────
+    document.getElementById('search').addEventListener('input', function () {
+      const q = this.value.toLowerCase().trim();
+      renderNav(q ? articles.filter(a =>
+        a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q)
+      ) : articles);
+      if (activeFile) setActiveNav(activeFile);
+    });
+
+    // ── Hash navigation (browser back/forward) ────────────────────────────────
+    window.addEventListener('hashchange', () => {
+      const hash = decodeURIComponent(location.hash.slice(1));
+      if (hash.endsWith('.md') && hash !== activeFile) loadArticle(hash);
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    loadIndex();
+
+  })();
+  </script>
+</body>
+</html>
