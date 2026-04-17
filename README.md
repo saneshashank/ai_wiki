@@ -2,6 +2,9 @@
 
 A personal wiki that builds itself from the web pages you visit, curated by Claude AI.
 
+*look at the detailed demo video here*: [https://youtu.be/Gd_SmU_vHl4](https://youtu.be/Gd_SmU_vHl4)
+
+
 ## How it works
 
 1. You browse the web and find something worth keeping
